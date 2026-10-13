@@ -254,7 +254,7 @@ def _compile(record, parser, counter):
             default = [] if collection else None
         # Argparse converts string defaults. Copy defaults to prevent state leakage.
         parser_default = list(default) if collection and default is not MISSING and default is not None else default
-        values = {"dest": key, "default": deepcopy(parser_default) if default is not MISSING else None, "help": spec.help}
+        values = {"dest": key, "default": deepcopy(parser_default) if default is not MISSING else None, "help": spec.help.replace("%", "%%")}
         if kind == "flag":
             values.update(action=_FlagAction, required=bool(spec.required))
         else:
@@ -300,21 +300,41 @@ def build(app, *, prog_name=None):
             setups = (*setups, _compile(Program(interface.setup, None), parser, counter))
         default = interface._programs.get(None)
         if default:
+            if default.description:
+                parser.description = "\n\n".join(filter(None, (interface.description, default.description)))
             compiled = _compile(default, parser, counter)
             if (interface.children or any(p.name is not None for p in interface.programs)) and any(b.spec and b.spec.kind == "argument" for b in compiled.bindings):
                 raise DefinitionError("A default program with positional arguments cannot share an interface with subcommands.")
             parser.set_defaults(_expose_plan=Plan(setups, compiled, path))
-        commands = sorted([*(p.name for p in interface.programs if p.name is not None), *interface.children])
+        entries = []
+        for record in interface.programs:
+            if record.name is not None:
+                entries.append((record.section or "", record.order, record.name, record.description))
+        for name, child in interface._children.items():
+            order, section = interface._presentation[name]
+            entries.append((section or "", order, name, child.description))
+        entries.sort(key=lambda item: (item[0], item[1] if item[1] is not None else float("inf"), item[2]))
+        commands = [entry[2] for entry in entries]
         if commands:
-            subparsers = parser.add_subparsers(title="programs", metavar="COMMAND")
+            lines = []
+            section = None
+            width = max(len(name) for name in commands)
+            for group, _, name, description in entries:
+                if group != section:
+                    lines.extend(([""] if lines else []) + [f"{group or 'Programs'}:"])
+                    section = group
+                summary = description.splitlines()[0] if description else ""
+                lines.append(f"  {name:<{width}}  {summary}".rstrip())
+            parser.epilog = "\n".join(lines)
+            subparsers = parser.add_subparsers(metavar="COMMAND")
             for name in commands:
                 if name in interface._children:
                     child = interface._children[name]
-                    child_parser = subparsers.add_parser(name, help=child.description.splitlines()[0] if child.description else "", description=child.description)
+                    child_parser = subparsers.add_parser(name, description=child.description)
                     node(child, child_parser, setups, (*path, name))
                 else:
                     record = interface._programs[name]
-                    child_parser = subparsers.add_parser(name, help=record.description.splitlines()[0] if record.description else "", description=record.description)
+                    child_parser = subparsers.add_parser(name, description=record.description)
                     compiled = _compile(record, child_parser, counter)
                     child_parser.set_defaults(_expose_plan=Plan(setups, compiled, (*path, name)), _expose_parser=child_parser)
 

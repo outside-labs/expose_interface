@@ -2,6 +2,8 @@
 
 from collections.abc import Callable
 import inspect
+from pathlib import Path
+import tomllib
 
 from .definitions import INFER, Program, make_program, validate_name
 from .errors import DefinitionError
@@ -20,6 +22,23 @@ class Interface:
         self.setup = setup
         self._programs: dict[str | None, Program] = {}
         self._children: dict[str, Interface] = {}
+        self._presentation: dict[str, tuple[int | None, str | None]] = {}
+
+    @classmethod
+    def from_toml(cls, path: str | Path, *, table: str = "tool.expose-interface", setup=None):
+        """Load name/description from one explicit TOML file and table."""
+        try:
+            with Path(path).open("rb") as source:
+                values = tomllib.load(source)
+            for part in table.split("."):
+                values = values[part]
+        except (OSError, tomllib.TOMLDecodeError, KeyError, TypeError) as error:
+            raise DefinitionError(f"Cannot read interface configuration from {path!s}: {error}") from error
+        if not isinstance(values, dict) or "name" not in values:
+            raise DefinitionError("The interface table must contain a name.")
+        if set(values).difference({"name", "description"}):
+            raise DefinitionError("The interface table accepts only name and description.")
+        return cls(values["name"], description=values.get("description", ""), setup=setup)
 
     @property
     def programs(self) -> tuple[Program, ...]:
@@ -61,7 +80,13 @@ class Interface:
 
         main(self, argv, prog_name=prog_name)
 
-    def add_interface(self, child: "Interface", *, name: str | None = None):
+    def format_help(self, *, prog_name=None):
+        """Compile and render root help without executing application code."""
+        from .parsing import build
+
+        return build(self, prog_name=prog_name).format_help()
+
+    def add_interface(self, child: "Interface", *, name: str | None = None, order: int | None = None, section: str | None = None):
         if not isinstance(child, Interface):
             raise DefinitionError("Children must be Interface instances.")
         mount = validate_name(child.name if name is None else name)
@@ -69,7 +94,12 @@ class Interface:
             raise DefinitionError(f"Duplicate command {mount!r} in {self.name!r}.")
         if child is self or child._contains(self):
             raise DefinitionError("Interface trees cannot contain cycles.")
+        if order is not None and type(order) is not int:
+            raise DefinitionError("order must be an integer.")
+        if section is not None and not isinstance(section, str):
+            raise DefinitionError("section must be a string.")
         self._children[mount] = child
+        self._presentation[mount] = (order, section)
         return child
 
     def _contains(self, interface):
