@@ -33,7 +33,7 @@ async def execute(plan, namespace):
                 positional.append(value)
             else:
                 values[binding.parameter.name] = value
-            if binding.callback and binding.key in getattr(namespace, "_expose_selected_flags", set()):
+            if binding.callback and getattr(namespace, f"{binding.key}_selected", False):
                 await _resolve(binding.callback())
         result = await _resolve(step.record.function(*positional, **values))
     return result
