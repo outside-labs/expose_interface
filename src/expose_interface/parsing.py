@@ -40,12 +40,9 @@ class _Parser(argparse.ArgumentParser):
 class _FlagAction(argparse.BooleanOptionalAction):
     def __call__(self, parser, namespace, values, option_string=None):
         super().__call__(parser, namespace, values, option_string)
-        selected = getattr(namespace, "_expose_selected_flags", set())
-        if getattr(namespace, self.dest):
-            selected.add(self.dest)
-        else:
-            selected.discard(self.dest)
-        namespace._expose_selected_flags = selected
+        # Subparser namespaces merge by key. Each binding needs its own marker
+        # so a child's selections cannot replace those from its parent.
+        setattr(namespace, f"{self.dest}_selected", getattr(namespace, self.dest))
 
 
 class _AppendAction(argparse.Action):

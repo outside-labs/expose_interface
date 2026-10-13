@@ -349,3 +349,29 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(app.invoke(["run", "--value", "chosen"]), "CHOSEN")
         self.assertEqual(app.invoke(["positional", "other"]), "OTHER")
         self.assertEqual(calls, ["chosen", "other"])
+
+    def test_parent_and_child_flag_callbacks_keep_independent_selections(self):
+        calls = []
+
+        @flag("--root-flag", mtd=lambda: calls.append("root flag"))
+        def setup(root_flag: bool = False):
+            calls.append("setup")
+
+        root = Interface("root", setup=setup)
+        child = root.add_interface(Interface("child"))
+
+        @child.program
+        @flag("--leaf-flag", mtd=lambda: calls.append("leaf flag"))
+        def run(value: int, leaf_flag: bool = False):
+            calls.append("program")
+            return value
+
+        root.invoke(["--root-flag", "child", "run", "3", "--leaf-flag"])
+        self.assertEqual(calls, ["root flag", "setup", "leaf flag", "program"])
+        calls.clear()
+        root.invoke(["--root-flag", "--no-root-flag", "child", "run", "3", "--leaf-flag"])
+        self.assertEqual(calls, ["setup", "leaf flag", "program"])
+        calls.clear()
+        with self.assertRaises(UsageError):
+            root.invoke(["--root-flag", "child", "run", "bad", "--leaf-flag"])
+        self.assertEqual(calls, [])
