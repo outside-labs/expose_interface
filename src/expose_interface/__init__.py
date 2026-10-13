@@ -3,9 +3,10 @@
 from .errors import CommandError, DefinitionError, UsageError
 from .definitions import Parameter, Program, argument, arguments, flag, option
 from .interface import Interface, cli, command, expose, get_interface, interface, program
+from .runtime import Context
 
 __all__ = [
-    "CommandError", "DefinitionError", "UsageError", "Interface", "Parameter", "Program",
+    "CommandError", "DefinitionError", "UsageError", "Context", "Interface", "Parameter", "Program",
     "argument", "arguments", "flag", "option", "program", "expose", "command", "cli",
     "interface", "get_interface", "main",
 ]
