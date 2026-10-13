@@ -172,3 +172,7 @@ Releases and package publication are separate from source development.
 
 The [design and task queue](https://github.com/outside-labs/expose_interface/issues/1)
 tracks the initial contract and Hidden Moves adoption.
+
+The [Hidden Moves adapter and conformance suite](docs/HIDDEN_MOVES.md) verify
+nested commands, provider loading, JSON contracts and async results against the
+real consumer API without adding consumer dependencies to this library.

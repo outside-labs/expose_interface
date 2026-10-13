@@ -48,15 +48,39 @@ jobs:
         with:
           python-version: '3.14'
       - run: python -m pip install 'uv==0.12.19'
-      - run: uv build
-      - name: Check installed distribution outside source checkout
+      - run: python scripts/check_distribution.py
+
+  consumer:
+    name: Hidden Moves consumer (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install 'uv==0.12.19'
+      - name: Build and install library wheel
         shell: bash
         run: |
-          wheel_env="${RUNNER_TEMP}/expose-wheel"
-          uv venv "$wheel_env" --python 3.14
-          uv pip install --python "$wheel_env/bin/python" dist/*.whl
-          uv pip check --python "$wheel_env/bin/python"
+          uv build --out-dir "$RUNNER_TEMP/library-dist"
+          uv venv "$RUNNER_TEMP/consumer-env" --python '${{ matrix.python }}'
+          uv pip install --python "$RUNNER_TEMP/consumer-env/bin/python" "$RUNNER_TEMP/library-dist/"*.whl
+      - uses: actions/checkout@v4
+        with:
+          repository: outside-labs/hidden_moves
+          ref: 6fa99794301efcce34cbed56e7c7b7eef162a184
+          path: .consumer
+          persist-credentials: false
+      - name: Conformance against the actual consumer API
+        shell: bash
+        run: |
+          export PYTHONPATH="$GITHUB_WORKSPACE/examples:$GITHUB_WORKSPACE/.consumer/src"
           cd "$RUNNER_TEMP"
-          "$wheel_env/bin/python" -I -c "from importlib.metadata import distribution; assert not distribution('expose-interface').requires"
-          "$wheel_env/bin/expose-interface" --help
-          "$wheel_env/bin/python" -m unittest discover -s "$GITHUB_WORKSPACE/tests" -v
+          "$RUNNER_TEMP/consumer-env/bin/python" -m unittest discover -s "$GITHUB_WORKSPACE/consumer_tests" -v
