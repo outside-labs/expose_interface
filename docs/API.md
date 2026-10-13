@@ -81,9 +81,13 @@ name. The whole tree is compiled before parsing. Unsupported definitions fail
 as `DefinitionError`, even when help was requested.
 
 `invoke_async` has the same contract inside an existing event loop. Sync invoke
-uses an event loop for async results and rejects use inside an active loop with
+calls synchronous functions outside a running event loop, retains one loop for
+async results, and rejects use inside an active loop with
 a message directing the caller to `invoke_async`. Custom awaitable results are
 supported alongside coroutine functions.
+
+Synchronous commands and callbacks may use their own `asyncio.run`. Async setup,
+callbacks and command results share the retained loop during sync invocation.
 
 An input annotated `Context` receives `Context(obj=None, command=None, path=())`.
 It is shared by the selected path's setup functions and program for that one

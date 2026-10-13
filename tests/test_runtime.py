@@ -375,3 +375,60 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaises(UsageError):
             root.invoke(["--root-flag", "child", "run", "bad", "--leaf-flag"])
         self.assertEqual(calls, [])
+
+    def test_synchronous_program_can_manage_its_own_event_loop(self):
+        async def compute(value):
+            return value + 1
+
+        app = Interface("app")
+
+        @app.program
+        def run(value: int):
+            return asyncio.run(compute(value))
+
+        self.assertEqual(app.invoke(["run", "3"]), 4)
+
+    def test_synchronous_callbacks_can_manage_their_own_event_loop(self):
+        calls = []
+
+        async def compute():
+            calls.append("callback")
+
+        app = Interface("app")
+
+        @app.program
+        @flag("--active", mtd=lambda: asyncio.run(compute()))
+        def run(active: bool = False):
+            return active
+
+        self.assertTrue(app.invoke(["run", "--active"]))
+        self.assertEqual(calls, ["callback"])
+
+    def test_async_steps_share_one_loop_with_sync_functions_outside_it(self):
+        loops = []
+
+        async def setup(context: Context):
+            loops.append(asyncio.get_running_loop())
+            context.obj = 5
+
+        async def callback():
+            loops.append(asyncio.get_running_loop())
+
+        app = Interface("app", setup=setup)
+
+        @app.program
+        @flag("--active", mtd=callback)
+        def run(context: Context, active: bool = False):
+            with self.assertRaises(RuntimeError):
+                asyncio.get_running_loop()
+
+            async def result():
+                loops.append(asyncio.get_running_loop())
+                return context.obj
+
+            return result()
+
+        self.assertEqual(app.invoke(["run", "--active"]), 5)
+        self.assertEqual(len(loops), 3)
+        self.assertTrue(all(loop is loops[0] for loop in loops))
+        self.assertTrue(loops[0].is_closed())
