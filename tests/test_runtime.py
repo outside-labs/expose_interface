@@ -323,3 +323,29 @@ class RuntimeTests(unittest.TestCase):
         from expose_interface import get_interface
 
         self.assertEqual(get_interface(module="__main__").name, "main")
+
+    def test_explicit_converters_preserve_python_string_defaults(self):
+        calls = []
+
+        def convert(value):
+            calls.append(value)
+            return value.upper()
+
+        app = Interface("app")
+
+        @app.program
+        @option("--value", type=convert)
+        def run(value: str = "lower"):
+            return value
+
+        @app.program
+        @argument("value", type=convert, choices=["lower", "OTHER"])
+        def positional(value: str = "lower"):
+            return value
+
+        self.assertEqual(app.invoke(["run"]), run())
+        self.assertEqual(app.invoke(["positional"]), positional())
+        self.assertEqual(calls, [])
+        self.assertEqual(app.invoke(["run", "--value", "chosen"]), "CHOSEN")
+        self.assertEqual(app.invoke(["positional", "other"]), "OTHER")
+        self.assertEqual(calls, ["chosen", "other"])
