@@ -43,6 +43,24 @@ class Interface:
 
     expose = command = cli = program
 
+    def invoke(self, argv=None, *, prog_name=None):
+        """Parse and execute, returning the selected callable's Python result."""
+        from .runtime import invoke
+
+        return invoke(self, argv, prog_name=prog_name)
+
+    async def invoke_async(self, argv=None, *, prog_name=None):
+        """Parse and execute inside the caller's event loop."""
+        from .runtime import invoke_async
+
+        return await invoke_async(self, argv, prog_name=prog_name)
+
+    def main(self, argv=None, *, prog_name=None):
+        """Console-script boundary: exit 0, 2 for usage, 1 for CommandError."""
+        from .runtime import main
+
+        main(self, argv, prog_name=prog_name)
+
     def add_interface(self, child: "Interface", *, name: str | None = None):
         if not isinstance(child, Interface):
             raise DefinitionError("Children must be Interface instances.")
@@ -88,7 +106,8 @@ def get_interface(name: str = ".", *, module: str | None = None) -> Interface:
     if key not in _interfaces:
         if name != ".":
             raise DefinitionError(f"Unknown interface {name!r} in module {owner!r}.")
-        _interfaces[key] = Interface(owner.rsplit(".", 1)[-1].replace("_", "-"))
+        default_name = owner.rsplit(".", 1)[-1].strip("_").replace("_", "-") or "program"
+        _interfaces[key] = Interface(default_name)
     return _interfaces[key]
 
 

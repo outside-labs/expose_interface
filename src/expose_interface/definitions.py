@@ -47,6 +47,10 @@ class Parameter:
             raise DefinitionError(f"Invalid parameter destination: {self.dest!r}.")
         if self.kind not in {"argument", "option", "flag"}:
             raise DefinitionError(f"Invalid parameter kind: {self.kind!r}.")
+        if self.required is not None and type(self.required) is not bool:
+            raise DefinitionError("required must be a Boolean.")
+        if type(self.multiple) is not bool or not isinstance(self.help, str):
+            raise DefinitionError("multiple must be a Boolean and help must be a string.")
         if self.kind == "argument" and self.names:
             raise DefinitionError("A positional argument cannot have option switches.")
         if self.kind != "argument":
@@ -163,10 +167,10 @@ def make_program(function, *, name=INFER, argument=None, arguments=None, order=N
     if isinstance(arguments, str) or (arguments is not None and not isinstance(arguments, Sequence)):
         raise DefinitionError("arguments must be a sequence of parameter names.")
     positional = tuple(arguments or ())
-    if len(set(positional)) != len(positional):
-        raise DefinitionError("Inline arguments cannot contain duplicate names.")
     for dest in positional:
         Parameter(dest, "argument")
+    if len(set(positional)) != len(positional):
+        raise DefinitionError("Inline arguments cannot contain duplicate names.")
     if order is not None and (isinstance(order, bool) or not isinstance(order, int)):
         raise DefinitionError("order must be an integer.")
     if section is not None and not isinstance(section, str):
