@@ -58,6 +58,19 @@ class _AppendAction(argparse.Action):
         namespace._expose_supplied_options = supplied
 
 
+@dataclass(frozen=True, eq=False)
+class _DefaultValue:
+    """Keep already typed string defaults out of argparse's conversion path."""
+
+    value: str
+
+    def __eq__(self, other):
+        return self.value == (other.value if isinstance(other, _DefaultValue) else other)
+
+    def __hash__(self):
+        return hash(self.value)
+
+
 @dataclass(frozen=True)
 class Binding:
     parameter: inspect.Parameter
@@ -69,6 +82,8 @@ class Binding:
 
     def value(self, namespace):
         value = getattr(namespace, self.key)
+        if isinstance(value, _DefaultValue):
+            value = value.value
         return self.collection(value) if self.collection and value is not None else value
 
 
@@ -254,6 +269,8 @@ def _compile(record, parser, counter):
             default = [] if collection else None
         # Argparse converts string defaults. Copy defaults to prevent state leakage.
         parser_default = list(default) if collection and default is not MISSING and default is not None else default
+        if isinstance(parser_default, str):
+            parser_default = _DefaultValue(parser_default)
         values = {"dest": key, "default": deepcopy(parser_default) if default is not MISSING else None, "help": spec.help.replace("%", "%%")}
         if kind == "flag":
             values.update(action=_FlagAction, required=bool(spec.required))
