@@ -1,0 +1,3 @@
+[tool.expose-interface]
+name = "demo"
+description = "Small programs exported from Python."

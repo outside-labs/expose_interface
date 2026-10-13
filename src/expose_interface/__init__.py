@@ -12,8 +12,8 @@ __all__ = [
 ]
 
 
-def main() -> None:
+def main(argv=None) -> None:
     """Run the explicit module launcher."""
     from .__main__ import main as launch
 
-    launch()
+    launch(argv)
