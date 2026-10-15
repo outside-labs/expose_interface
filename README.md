@@ -3,6 +3,19 @@
 Export ordinary Python functions and bound methods as command line programs.
 The package uses the standard library and supports Python 3.11 and later.
 
+## Install
+
+```sh
+python -m pip install expose-interface
+```
+
+## Releases
+
+Publish a GitHub release with a tag matching the package version, such as
+`v0.1.0`. `.github/workflows/release.yaml` tests and verifies the distributions
+before publishing to PyPI through the `pypi` environment using Trusted Publishing.
+The workflow can also be run manually against an existing release tag.
+
 ## Define an interface
 
 ```python
@@ -58,8 +71,8 @@ hi = "hello:main"
 
 After installing that application, its environment's `bin` directory (Scripts
 on Windows) contains both commands. Both invoke the same interface. The library
-does not write executables elsewhere on the system. No distribution has been
-published yet; development consumers can install this source checkout.
+does not write executables elsewhere on the system. Development consumers can
+also install this source checkout.
 
 ## Arguments, options and flags
 
